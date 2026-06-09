@@ -1,0 +1,55 @@
+// El enlace a Tinkercad con el circuito para el sistema de alarma es el siguiente:
+// https://www.tinkercad.com/things/ct4BS0YLr66-surprising-blorr/editel?returnTo=https%3A%2F%2Fwww.tinkercad.com%2Fdashboard&sharecode=StugTKbgiTUkvlUxApYlv1HODnqXxRlmUS59vd8M0Pk
+// Adjuntamos adicionalmente por este medio el código para el sistema de alarma:
+#include <Servo.h>
+
+const int PIN_PIR    = 10;  // Sensor de movimiento
+const int PIN_BUZZER = 9;   // Buzzer piezoeléctrico
+const int PIN_SERVO  = 8;   // Servomotor
+const int PIN_LED_R  = 13;  // LED RGB - Rojo
+const int PIN_LED_G  = 11;  // LED RGB - Verde
+const int PIN_LED_B  = 12;  // LED RGB - Azul
+const int PIN_POT    = A0;  // Potenciómetro
+
+Servo miServo;
+
+void setup() {
+  pinMode(PIN_PIR, INPUT);
+  pinMode(PIN_BUZZER, OUTPUT);
+  pinMode(PIN_LED_R, OUTPUT);
+  pinMode(PIN_LED_G, OUTPUT);
+  pinMode(PIN_LED_B, OUTPUT);
+  
+  miServo.attach(PIN_SERVO);
+  miServo.write(0);  // posición de reposo
+}
+
+void loop() {
+  // Leer potenciómetro para ajustar duración/sensibilidad
+  int valorPot = analogRead(PIN_POT);
+  int duracion = map(valorPot, 0, 1023, 200, 1500);
+
+  if (1 == digitalRead(PIN_PIR)) {
+    // MOVIMIENTO DETECTADO: ALARMA
+    digitalWrite(PIN_LED_R, HIGH);   // LED rojo
+    digitalWrite(PIN_LED_G, LOW);
+    digitalWrite(PIN_LED_B, LOW);
+    
+    tone(PIN_BUZZER, 523, duracion); // Nota C5 (523 Hz)
+    miServo.write(180);              // servo se mueve
+    delay(duracion);
+    miServo.write(0);
+    delay(duracion);
+    
+  } else {
+    // ESTADO NORMAL
+    digitalWrite(PIN_LED_R, LOW);
+    digitalWrite(PIN_LED_G, HIGH);   // LED verde
+    digitalWrite(PIN_LED_B, LOW);
+    
+    noTone(PIN_BUZZER);
+    miServo.write(0);
+  }
+  
+  delay(10);
+}
