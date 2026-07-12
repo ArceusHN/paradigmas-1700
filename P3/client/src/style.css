@@ -50,3 +50,120 @@ body {
   color: #9aa4b2;
   line-height: 1.4;
 }
+
+/* ── Panel de control ─────────────────────────────────────── */
+#panel {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  width: 240px;
+  background: rgba(16, 20, 30, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+
+#panel .grupo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+#panel .grupo > label {
+  width: 100%;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9aa4b2;
+}
+
+#panel button {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #e6e9ef;
+  background: #232936;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#panel button:hover {
+  background: #2d3546;
+}
+
+#panel button.activo {
+  background: #2563eb;
+  border-color: #3b82f6;
+}
+
+#panel button.reinicio {
+  width: 100%;
+  background: #3a2330;
+  border-color: #6b3346;
+}
+
+#panel button.reinicio:hover {
+  background: #4a2c3d;
+}
+
+#panel input[type="number"] {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #e6e9ef;
+  background: #232936;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+#panel input[type="range"] {
+  flex: 1;
+  accent-color: #2563eb;
+}
+
+#panel .val {
+  font-size: 12px;
+  color: #9aa4b2;
+  min-width: 34px;
+  text-align: right;
+}
+
+#stats {
+  font-size: 13px;
+  line-height: 1.7;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#stats .luz {
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+
+#stats .luz.verde {
+  background: rgba(52, 199, 89, 0.2);
+  color: #7ee787;
+}
+
+#stats .luz.amarillo {
+  background: rgba(255, 204, 0, 0.2);
+  color: #ffd166;
+}
+
+#stats .luz.rojo {
+  background: rgba(255, 59, 48, 0.2);
+  color: #ff8a80;
+}
+
+#stats .luz.intermitente {
+  background: rgba(255, 204, 0, 0.15);
+  color: #ffe08a;
+}

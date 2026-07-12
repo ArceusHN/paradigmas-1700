@@ -1,13 +1,16 @@
+import { Simulation } from './core/Simulation';
 import { Scene } from './render/Scene';
-import { RULES, NEXT_STATE } from 'shared';
+import { Controls } from './ui/Controls';
 
-// Bootstrap de la Fase 1: monta la escena 3D navegable.
+// Bootstrap de la Fase 2: simulación (núcleo) + escena 3D + panel de control.
+const SEED = 12345;
+const RATE = 0.3; // vehículos por segundo por acceso
+
+const sim = new Simulation({ seed: SEED, rate: RATE });
+
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
-const escena = new Scene(canvas);
+const escena = new Scene(canvas, sim);
+new Controls(sim, escena, SEED, RATE);
 escena.start();
 
-// Evidencia en consola de que los contratos compartidos (shared/types.ts)
-// se importan correctamente cliente-lado. Sirve para la demo del avance.
-console.log('🚦 Semáforo Inteligente 3D — Fase 1 lista');
-console.log('Transiciones de la máquina de estados:', NEXT_STATE);
-console.table(RULES);
+console.log('🚦 Semáforo Inteligente 3D — Fase 2 (modo tradicional, reproducible por semilla)');
