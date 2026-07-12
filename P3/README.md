@@ -22,31 +22,49 @@ npm run dev      # levanta cliente y servidor a la vez
 Controles de la escena: **arrastrar** para orbitar, **rueda** para zoom,
 **clic derecho** para desplazar.
 
-## Estado actual — Fase 1 (Diseño y esqueleto) ✅
+## Fase 1 (Diseño y esqueleto) ✅
 
-| Entregable de la Fase 1 | Estado |
+- Monorepo corriendo (client + server) con npm workspaces.
+- Escena 3D navegable, cámara orbital.
+- Estados, transiciones, tabla de reglas y contratos en `shared/types.ts`.
+
+## Estado actual — Fase 2 (Semáforo tradicional en 3D, línea base) ✅
+
+| Entregable de la Fase 2 | Estado |
 |---|---|
-| Monorepo corriendo (client + server) | ✅ npm workspaces + `npm run dev` |
-| Escena 3D navegable (plano, luces, cámara orbital) | ✅ `client/src/render/Scene.ts` |
-| Estados y transiciones definidos | ✅ `shared/types.ts` (`LightState`, `NEXT_STATE`) |
-| Tabla de reglas con prioridades | ✅ `shared/types.ts` (`RULES`) |
-| Contratos compartidos cliente/servidor | ✅ `shared/types.ts` |
+| Máquina de estados con tiempos fijos | ✅ `core/Controller.ts` (plan de 2 fases + todo-rojo) |
+| Reloj de simulación acelerable (x1/x5/x20 + pausa) | ✅ `ui/Controls.ts` + paso fijo en `core/Simulation.ts` |
+| Generador de demanda determinista por semilla | ✅ `core/prng.ts` (mulberry32) + `core/Demand`/`Simulation` |
+| Intersección con 4 postes de luces emisivas | ✅ `render/TrafficLightMesh.ts` |
+| Autos que frenan en rojo y arrancan en verde (con cola) | ✅ `render/VehicleMesh.ts` + seguimiento en `Simulation.advance()` |
+| Reproducible por semilla | ✅ verificado: misma semilla ⇒ resultado idéntico |
+
+Controles en pantalla: velocidad **x1/x5/x20**, **pausa**, **semilla**, densidad
+de **tráfico**, **reiniciar corrida**, y lectura en vivo (fase, autos en cola,
+autos procesados).
 
 ## Estructura
 
 ```
 P3/
-├── shared/types.ts        # Contratos y estados (tipado estático)
+├── shared/types.ts        # Contratos, estados, direcciones (tipado estático)
 ├── client/                # Vite + TypeScript + Three.js
 │   └── src/
-│       ├── main.ts        # Bootstrap
-│       ├── core/          # Lógica pura (TrafficLight — esqueleto)
-│       └── render/        # Escena 3D (Three.js)
+│       ├── main.ts        # Bootstrap: Simulation + Scene + Controls
+│       ├── core/          # Lógica pura, sin Three.js (testeable)
+│       │   ├── prng.ts        # PRNG determinista (semilla)
+│       │   ├── world.ts       # Geometría y constantes
+│       │   ├── Vehicle.ts     # Modelo lógico de vehículo
+│       │   ├── TrafficLight.ts# Máquina de estados (patrón State)
+│       │   ├── Controller.ts  # Controlador de tiempos fijos
+│       │   └── Simulation.ts  # Mundo: paso fijo, demanda, colas
+│       ├── render/        # Three.js (sólo lee estado del núcleo)
+│       └── ui/            # Panel de control
 └── server/                # Express + TypeScript (esqueleto de la API)
     └── src/index.ts
 ```
 
-## Próximo (Fase 2)
+## Próximo (Fase 3 — Inteligencia)
 
-Máquina de estados con reloj de simulación acelerable, generador de demanda
-determinista por semilla, e intersección con autos que frenan/arrancan.
+Panel de sensores (peatón, ambulancia, hora), las 5 reglas de prioridad y el
+toggle modo fijo / inteligente sobre el mismo motor.

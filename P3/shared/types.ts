@@ -23,6 +23,21 @@ export const NEXT_STATE: Record<LightState, LightState> = {
 // ─── Modo de operación (habilita la comparación A/B) ──────────────────
 export type Mode = 'fijo' | 'inteligente';
 
+// ─── Geometría lógica de la intersección ──────────────────────────────
+// Cuatro accesos cardinales y su agrupación por fase de semáforo.
+// N y S comparten fase; E y O comparten fase (2 fases en cruz).
+export type Direction = 'N' | 'S' | 'E' | 'O';
+export type Group = 'NS' | 'EW';
+
+export const GROUP_OF: Record<Direction, Group> = {
+  N: 'NS',
+  S: 'NS',
+  E: 'EW',
+  O: 'EW',
+};
+
+export const DIRECTIONS: readonly Direction[] = ['N', 'S', 'E', 'O'] as const;
+
 // ─── Reglas adaptativas por prioridad ─────────────────────────────────
 // El controlador evalúa las reglas de mayor a menor prioridad y aplica
 // la primera que dispare. Aquí sólo declaramos el catálogo; las funciones
