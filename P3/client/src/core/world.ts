@@ -21,6 +21,18 @@ export const CAR_LEN = 3; // largo del auto
 export const CAR_GAP = 1.6; // separación mínima entre autos en cola
 export const CAR_SPEED = 9; // unidades por segundo simulado
 
+/**
+ * Factor de "noche" según la hora simulada (0 = pleno día, 1 = noche cerrada),
+ * con transición suave al amanecer y al anochecer. Lo usan el generador de
+ * tráfico (menos autos de madrugada) y el render (iluminación día/noche).
+ */
+export function nocheFactor(hora: number): number {
+  if (hora >= 7 && hora <= 18) return 0;
+  if (hora >= 20 || hora <= 5) return 1;
+  if (hora > 18 && hora < 20) return (hora - 18) / 2; // anochecer
+  return 1 - (hora - 5) / 2; // amanecer (5–7)
+}
+
 export interface Placement {
   x: number;
   z: number;

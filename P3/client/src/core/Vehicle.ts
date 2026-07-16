@@ -15,6 +15,7 @@ export class Vehicle {
     d: number,
     readonly color: number,
     readonly nacidoEn: number, // tiempo de simulación al aparecer (para esperas)
+    readonly esEmergencia = false, // true = ambulancia (prioridad máxima)
   ) {
     this.d = d;
   }

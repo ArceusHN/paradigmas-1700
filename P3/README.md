@@ -28,7 +28,7 @@ Controles de la escena: **arrastrar** para orbitar, **rueda** para zoom,
 - Escena 3D navegable, cámara orbital.
 - Estados, transiciones, tabla de reglas y contratos en `shared/types.ts`.
 
-## Estado actual — Fase 2 (Semáforo tradicional en 3D, línea base) ✅
+## Fase 2 (Semáforo tradicional en 3D, línea base) ✅
 
 | Entregable de la Fase 2 | Estado |
 |---|---|
@@ -39,9 +39,25 @@ Controles de la escena: **arrastrar** para orbitar, **rueda** para zoom,
 | Autos que frenan en rojo y arrancan en verde (con cola) | ✅ `render/VehicleMesh.ts` + seguimiento en `Simulation.advance()` |
 | Reproducible por semilla | ✅ verificado: misma semilla ⇒ resultado idéntico |
 
-Controles en pantalla: velocidad **x1/x5/x20**, **pausa**, **semilla**, densidad
-de **tráfico**, **reiniciar corrida**, y lectura en vivo (fase, autos en cola,
-autos procesados).
+## Estado actual — Fase 3 (Inteligencia y sensores) ✅
+
+| Entregable de la Fase 3 | Estado |
+|---|---|
+| Panel de sensores manipulables | ✅ `ui/Controls.ts` (carro, peatón, ambulancia, hora) |
+| Regla EMERGENCIA (ambulancia → verde inmediato) | ✅ verificada headless |
+| Regla PEATÓN (cruce peatonal intercalado) | ✅ `core/Controller.ts` |
+| Regla DEMANDA (verde proporcional a la cola) | ✅ verificada: 5s sin cola → ~15s con cola |
+| Regla NOCTURNO (madrugada sin tráfico → intermitente) | ✅ verificada headless |
+| Toggle modo fijo / inteligente (mismo motor) | ✅ `core/Simulation.ts` |
+| Render: ambulancia con baliza, ciclo día/noche | ✅ `render/*` |
+
+Las reglas son **funciones puras** en `core/rules.ts` (paradigma funcional);
+el controlador inteligente las compone por prioridad. Los botones de sensores
+simulan lo que enviará el ESP32 desde Wokwi (Fase 3 — puente MQTT, siguiente paso).
+
+Controles en pantalla: **modo** inteligente/tradicional, **sensores** (carro N-S/E-O,
+peatón, ambulancia), **hora del día**, velocidad **x1/x5/x20**, **pausa**,
+**semilla**, **reiniciar** y lectura en vivo (fase, colas, procesados, alertas).
 
 ## Estructura
 
@@ -56,15 +72,19 @@ P3/
 │       │   ├── world.ts       # Geometría y constantes
 │       │   ├── Vehicle.ts     # Modelo lógico de vehículo
 │       │   ├── TrafficLight.ts# Máquina de estados (patrón State)
-│       │   ├── Controller.ts  # Controlador de tiempos fijos
-│       │   └── Simulation.ts  # Mundo: paso fijo, demanda, colas
+│       │   ├── rules.ts       # Reglas de decisión (funciones puras)
+│       │   ├── Controller.ts  # Controladores fijo + inteligente
+│       │   └── Simulation.ts  # Mundo: paso fijo, demanda, sensores, colas
 │       ├── render/        # Three.js (sólo lee estado del núcleo)
 │       └── ui/            # Panel de control
 └── server/                # Express + TypeScript (esqueleto de la API)
     └── src/index.ts
 ```
 
-## Próximo (Fase 3 — Inteligencia)
+## Próximo
 
-Panel de sensores (peatón, ambulancia, hora), las 5 reglas de prioridad y el
-toggle modo fijo / inteligente sobre el mismo motor.
+- **Puente Wokwi (MQTT):** un ESP32 con push buttons publica señales de sensores
+  a un broker MQTT; la app se suscribe y alimenta la simulación (mismo efecto
+  que los botones en pantalla, pero desde hardware simulado).
+- **Fase 4:** persistencia (SQLite vía API) y dashboards con Chart.js.
+- **Fase 5:** comparación A/B en vivo (fijo vs inteligente, misma semilla).
