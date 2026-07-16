@@ -9,6 +9,7 @@ import {
 } from 'shared';
 import { mulberry32 } from './prng';
 import { Vehicle } from './Vehicle';
+import { Pedestrian } from './Pedestrian';
 import { FixedController, SmartController, type SemaforoController } from './Controller';
 import {
   CAR_GAP,
@@ -16,6 +17,8 @@ import {
   CAR_SPEED,
   DESPAWN_DIST,
   nocheFactor,
+  PED_SPEED,
+  PED_TRAMO,
   SPAWN_DIST,
   STEP,
   STOP_LINE,
@@ -29,6 +32,8 @@ export interface SimConfig {
 
 /** Paleta determinista de colores de carrocería. */
 const COLORES = [0x4f8cff, 0xff6b6b, 0xffd166, 0x8ce99a, 0xb197fc, 0xffa94d, 0xe9ecef];
+/** Colores de ropa de los peatones. */
+const ROPA = [0x3b82f6, 0xef4444, 0x22c55e, 0xf59e0b, 0xa855f7, 0x14b8a6];
 
 /** Instantánea de estado para el render y el HUD (el render sólo lee). */
 export interface Snapshot {
@@ -61,7 +66,9 @@ export class Simulation {
   private readonly smart = new SmartController();
   private rng: () => number;
   private lanes: Record<Direction, Vehicle[]>;
+  private peatones: Pedestrian[] = [];
   private nextId = 1;
+  private nextPedId = 1;
   private acc = 0;
 
   // ── Entradas de sensores externas (UI / Wokwi) ──
@@ -83,10 +90,12 @@ export class Simulation {
     this.cfg = cfg;
     this.rng = mulberry32(cfg.seed);
     this.lanes = { N: [], S: [], E: [], O: [] };
+    this.peatones = [];
     this.simTime = 0;
     this.procesados = 0;
     this.acc = 0;
     this.nextId = 1;
+    this.nextPedId = 1;
     this.peatonInput = false;
   }
 
@@ -107,9 +116,16 @@ export class Simulation {
       this.lanes[dir].push(new Vehicle(this.nextId++, dir, SPAWN_DIST, color, this.simTime));
     }
   }
-  /** Botón: peatón esperando cruzar. */
+  /** Botón: peatón esperando cruzar. Aparecen peatones en los cuatro cruces. */
   pedirPeaton(): void {
     this.peatonInput = true;
+    for (const cruce of DIRECTIONS) {
+      const enEspera = this.peatones.filter((p) => p.cruce === cruce && p.progreso < 0.05).length;
+      if (enEspera < 2) {
+        const color = ROPA[this.nextPedId % ROPA.length];
+        this.peatones.push(new Pedestrian(this.nextPedId++, cruce, color));
+      }
+    }
   }
   /** Botón/RFID: ambulancia entrando por una vía. */
   enviarAmbulancia(dir: Direction): void {
@@ -118,6 +134,16 @@ export class Simulation {
 
   vehicles(): Vehicle[] {
     return DIRECTIONS.flatMap((d) => this.lanes[d]);
+  }
+
+  pedestrians(): Pedestrian[] {
+    return this.peatones;
+  }
+
+  /** ¿El semáforo peatonal de un cruce está en verde? (la vía que cruza en rojo). */
+  peatonPuedeCruzar(cruce: Direction): boolean {
+    const g = cruce === 'N' || cruce === 'S' ? 'NS' : 'EW';
+    return this.controller.state(g) === 'ROJO';
   }
 
   /** Construye la lectura de sensores a partir del mundo + entradas externas. */
@@ -168,6 +194,17 @@ export class Simulation {
     if (this.modo === 'inteligente' && this.smart.peatonServido) this.peatonInput = false;
     this.spawn();
     this.advance();
+    this.avanzarPeatones();
+  }
+
+  /** Los peatones avanzan sólo si su semáforo peatonal está en verde. */
+  private avanzarPeatones(): void {
+    for (const p of this.peatones) {
+      if (this.peatonPuedeCruzar(p.cruce)) {
+        p.progreso += (PED_SPEED * STEP) / PED_TRAMO;
+      }
+    }
+    this.peatones = this.peatones.filter((p) => p.progreso < 1);
   }
 
   /** Generación ambiental de tráfico (determinista + factor día/noche). */

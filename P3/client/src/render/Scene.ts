@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import type { Group } from 'shared';
+import type { Direction, Group } from 'shared';
 import type { Simulation, Snapshot } from '../core/Simulation';
-import { nocheFactor, placement } from '../core/world';
+import { nocheFactor, pedPlacement, placement } from '../core/world';
 import { buildIntersection } from './Intersection';
 import { TrafficLightMesh } from './TrafficLightMesh';
+import { PedestrianSignalMesh } from './PedestrianSignalMesh';
 import { createCarMesh } from './VehicleMesh';
+import { createPedestrianMesh } from './PedestrianMesh';
 
 const COLOR_DIA = new THREE.Color(0x1b2a44);
 const COLOR_NOCHE = new THREE.Color(0x05060a);
@@ -23,7 +25,9 @@ export class Scene {
   private readonly clock = new THREE.Clock();
 
   private readonly lights: { mesh: TrafficLightMesh; group: Group }[] = [];
+  private readonly pedSignals: { mesh: PedestrianSignalMesh; cruce: Direction }[] = [];
   private readonly carPool = new Map<number, THREE.Group>();
+  private readonly pedPool = new Map<number, THREE.Group>();
   private hemi!: THREE.HemisphereLight;
   private sun!: THREE.DirectionalLight;
 
@@ -55,6 +59,7 @@ export class Scene {
     this.buildLights();
     this.scene.add(buildIntersection());
     this.buildTrafficLights();
+    this.buildPedestrianSignals();
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -78,16 +83,55 @@ export class Scene {
   }
 
   private buildTrafficLights(): void {
+    // Postes en la esquina derecha de cada acceso, mirando al tráfico que llega.
     const defs: { x: number; z: number; rot: number; group: Group }[] = [
-      { x: 6, z: -6.5, rot: Math.PI, group: 'NS' }, // acceso Norte
-      { x: -6, z: 6.5, rot: 0, group: 'NS' }, // acceso Sur
-      { x: 6.5, z: -6, rot: Math.PI / 2, group: 'EW' }, // acceso Este
-      { x: -6.5, z: 6, rot: -Math.PI / 2, group: 'EW' }, // acceso Oeste
+      { x: 7.5, z: -8, rot: Math.PI, group: 'NS' }, // acceso Norte
+      { x: -7.5, z: 8, rot: 0, group: 'NS' }, // acceso Sur
+      { x: 8, z: -7.5, rot: Math.PI / 2, group: 'EW' }, // acceso Este
+      { x: -8, z: 7.5, rot: -Math.PI / 2, group: 'EW' }, // acceso Oeste
     ];
     for (const d of defs) {
       const mesh = new TrafficLightMesh(d.x, d.z, d.rot);
       this.scene.add(mesh.group);
       this.lights.push({ mesh, group: d.group });
+    }
+  }
+
+  private buildPedestrianSignals(): void {
+    // Un semáforo peatonal en un extremo de cada cruce.
+    const defs: { x: number; z: number; rot: number; cruce: Direction }[] = [
+      { x: 7, z: -6.5, rot: -Math.PI / 2, cruce: 'N' },
+      { x: -7, z: 6.5, rot: Math.PI / 2, cruce: 'S' },
+      { x: 6.5, z: 7, rot: Math.PI, cruce: 'E' },
+      { x: -6.5, z: -7, rot: 0, cruce: 'O' },
+    ];
+    for (const d of defs) {
+      const mesh = new PedestrianSignalMesh(d.x, d.z, d.rot);
+      this.scene.add(mesh.group);
+      this.pedSignals.push({ mesh, cruce: d.cruce });
+    }
+  }
+
+  /** Sincroniza los meshes de peatones con los del núcleo. */
+  private syncPedestrians(): void {
+    const ids = new Set<number>();
+    for (const p of this.sim.pedestrians()) {
+      ids.add(p.id);
+      let mesh = this.pedPool.get(p.id);
+      if (!mesh) {
+        mesh = createPedestrianMesh(p.color);
+        this.scene.add(mesh);
+        this.pedPool.set(p.id, mesh);
+      }
+      const pos = pedPlacement(p.cruce, p.progreso);
+      mesh.position.set(pos.x, 0, pos.z);
+      mesh.rotation.y = pos.heading;
+    }
+    for (const [id, mesh] of this.pedPool) {
+      if (!ids.has(id)) {
+        this.scene.remove(mesh);
+        this.pedPool.delete(id);
+      }
     }
   }
 
@@ -118,10 +162,12 @@ export class Scene {
     }
   }
 
-  /** Vacía todos los autos (al reiniciar la corrida). */
+  /** Vacía autos y peatones (al reiniciar la corrida). */
   clearVehicles(): void {
     for (const [, mesh] of this.carPool) this.scene.remove(mesh);
     this.carPool.clear();
+    for (const [, mesh] of this.pedPool) this.scene.remove(mesh);
+    this.pedPool.clear();
   }
 
   private resize(): void {
@@ -145,7 +191,11 @@ export class Scene {
       for (const { mesh, group } of this.lights) {
         mesh.setState(group === 'NS' ? snap.ns : snap.ew, t);
       }
+      for (const { mesh, cruce } of this.pedSignals) {
+        mesh.setWalk(this.sim.peatonPuedeCruzar(cruce));
+      }
       this.syncVehicles(t);
+      this.syncPedestrians();
       this.onStats?.(snap);
 
       this.controls.update();

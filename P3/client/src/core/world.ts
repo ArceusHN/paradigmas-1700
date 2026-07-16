@@ -13,9 +13,13 @@ export const STEP = 1 / 30;
 
 export const ROAD_HALF = 5; // media anchura de cada calle (calle = 10)
 export const LANE_OFFSET = 2.5; // desfase del carril respecto al eje de la calle
-export const STOP_LINE = ROAD_HALF + 1; // distancia al centro donde se frena
+export const CROSSWALK = 6.5; // distancia al centro del cruce peatonal
+export const STOP_LINE = 8; // distancia al centro donde frena el auto (tras el cruce)
 export const SPAWN_DIST = 40; // dónde nacen los autos (lejos del centro)
 export const DESPAWN_DIST = 44; // dónde se eliminan tras cruzar
+
+export const PED_SPEED = 3; // unidades por segundo simulado
+export const PED_TRAMO = 12; // largo del cruce peatonal (de acera a acera)
 
 export const CAR_LEN = 3; // largo del auto
 export const CAR_GAP = 1.6; // separación mínima entre autos en cola
@@ -54,5 +58,24 @@ export function placement(dir: Direction, d: number): Placement {
       return { x: d, z: -LANE_OFFSET, heading: -Math.PI / 2 }; // viene del este, avanza -X
     case 'O':
       return { x: -d, z: LANE_OFFSET, heading: Math.PI / 2 }; // viene del oeste, avanza +X
+  }
+}
+
+/**
+ * Posición de un peatón en su cruce, según el progreso `p` (0→1) de acera a
+ * acera. Cada cruce se sitúa en uno de los cuatro brazos de la intersección.
+ * Los cruces N/S atraviesan la vía Norte-Sur; los E/O atraviesan la Este-Oeste.
+ */
+export function pedPlacement(cruce: Direction, p: number): Placement {
+  const t = -6 + 12 * p; // recorre de -6 a 6
+  switch (cruce) {
+    case 'N':
+      return { x: t, z: -CROSSWALK, heading: Math.PI / 2 };
+    case 'S':
+      return { x: -t, z: CROSSWALK, heading: -Math.PI / 2 };
+    case 'E':
+      return { x: CROSSWALK, z: t, heading: 0 };
+    case 'O':
+      return { x: -CROSSWALK, z: -t, heading: Math.PI };
   }
 }
