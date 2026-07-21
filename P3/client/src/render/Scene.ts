@@ -1,11 +1,16 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import type { Group } from 'shared';
+import type { Direction, Group } from 'shared';
 import type { Simulation, Snapshot } from '../core/Simulation';
-import { placement } from '../core/world';
+import { nocheFactor, pedPlacement, placement } from '../core/world';
 import { buildIntersection } from './Intersection';
 import { TrafficLightMesh } from './TrafficLightMesh';
+import { PedestrianSignalMesh } from './PedestrianSignalMesh';
 import { createCarMesh } from './VehicleMesh';
+import { createPedestrianMesh } from './PedestrianMesh';
+
+const COLOR_DIA = new THREE.Color(0x1b2a44);
+const COLOR_NOCHE = new THREE.Color(0x05060a);
 
 /**
  * Capa de presentación (Three.js). Cada frame lee el estado del núcleo y
@@ -20,7 +25,11 @@ export class Scene {
   private readonly clock = new THREE.Clock();
 
   private readonly lights: { mesh: TrafficLightMesh; group: Group }[] = [];
+  private readonly pedSignals: { mesh: PedestrianSignalMesh; cruce: Direction }[] = [];
   private readonly carPool = new Map<number, THREE.Group>();
+  private readonly pedPool = new Map<number, THREE.Group>();
+  private hemi!: THREE.HemisphereLight;
+  private sun!: THREE.DirectionalLight;
 
   /** Factor de aceleración del reloj (x1 / x5 / x20), controlado por la UI. */
   speed = 1;
@@ -50,24 +59,36 @@ export class Scene {
     this.buildLights();
     this.scene.add(buildIntersection());
     this.buildTrafficLights();
+    this.buildPedestrianSignals();
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
   }
 
   private buildLights(): void {
-    this.scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x202028, 0.85));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.1);
-    sun.position.set(15, 30, 12);
-    this.scene.add(sun);
+    this.hemi = new THREE.HemisphereLight(0xbfd4ff, 0x202028, 0.85);
+    this.scene.add(this.hemi);
+    this.sun = new THREE.DirectionalLight(0xffffff, 1.1);
+    this.sun.position.set(15, 30, 12);
+    this.scene.add(this.sun);
+  }
+
+  /** Ajusta la iluminación y el cielo según la hora simulada. */
+  private aplicarDiaNoche(hora: number): void {
+    const noche = nocheFactor(hora);
+    this.hemi.intensity = 0.85 - 0.6 * noche;
+    this.sun.intensity = 1.1 - 0.95 * noche;
+    (this.scene.background as THREE.Color).copy(COLOR_DIA).lerp(COLOR_NOCHE, noche);
+    if (this.scene.fog) (this.scene.fog as THREE.Fog).color.copy(this.scene.background as THREE.Color);
   }
 
   private buildTrafficLights(): void {
+    // Postes en la esquina derecha de cada acceso, mirando al tráfico que llega.
     const defs: { x: number; z: number; rot: number; group: Group }[] = [
-      { x: 6, z: -6.5, rot: Math.PI, group: 'NS' }, // acceso Norte
-      { x: -6, z: 6.5, rot: 0, group: 'NS' }, // acceso Sur
-      { x: 6.5, z: -6, rot: Math.PI / 2, group: 'EW' }, // acceso Este
-      { x: -6.5, z: 6, rot: -Math.PI / 2, group: 'EW' }, // acceso Oeste
+      { x: 7.5, z: -8, rot: Math.PI, group: 'NS' }, // acceso Norte
+      { x: -7.5, z: 8, rot: 0, group: 'NS' }, // acceso Sur
+      { x: 8, z: -7.5, rot: Math.PI / 2, group: 'EW' }, // acceso Este
+      { x: -8, z: 7.5, rot: -Math.PI / 2, group: 'EW' }, // acceso Oeste
     ];
     for (const d of defs) {
       const mesh = new TrafficLightMesh(d.x, d.z, d.rot);
@@ -76,20 +97,61 @@ export class Scene {
     }
   }
 
+  private buildPedestrianSignals(): void {
+    // Un semáforo peatonal en un extremo de cada cruce.
+    const defs: { x: number; z: number; rot: number; cruce: Direction }[] = [
+      { x: 7, z: -6.5, rot: -Math.PI / 2, cruce: 'N' },
+      { x: -7, z: 6.5, rot: Math.PI / 2, cruce: 'S' },
+      { x: 6.5, z: 7, rot: Math.PI, cruce: 'E' },
+      { x: -6.5, z: -7, rot: 0, cruce: 'O' },
+    ];
+    for (const d of defs) {
+      const mesh = new PedestrianSignalMesh(d.x, d.z, d.rot);
+      this.scene.add(mesh.group);
+      this.pedSignals.push({ mesh, cruce: d.cruce });
+    }
+  }
+
+  /** Sincroniza los meshes de peatones con los del núcleo. */
+  private syncPedestrians(): void {
+    const ids = new Set<number>();
+    for (const p of this.sim.pedestrians()) {
+      ids.add(p.id);
+      let mesh = this.pedPool.get(p.id);
+      if (!mesh) {
+        mesh = createPedestrianMesh(p.color);
+        this.scene.add(mesh);
+        this.pedPool.set(p.id, mesh);
+      }
+      const pos = pedPlacement(p.cruce, p.progreso);
+      mesh.position.set(pos.x, 0, pos.z);
+      mesh.rotation.y = pos.heading;
+    }
+    for (const [id, mesh] of this.pedPool) {
+      if (!ids.has(id)) {
+        this.scene.remove(mesh);
+        this.pedPool.delete(id);
+      }
+    }
+  }
+
   /** Sincroniza los meshes de autos con los vehículos vivos del núcleo. */
-  private syncVehicles(): void {
+  private syncVehicles(t: number): void {
     const ids = new Set<number>();
     for (const v of this.sim.vehicles()) {
       ids.add(v.id);
       let mesh = this.carPool.get(v.id);
       if (!mesh) {
-        mesh = createCarMesh(v.color);
+        mesh = createCarMesh(v.color, v.esEmergencia);
         this.scene.add(mesh);
         this.carPool.set(v.id, mesh);
       }
       const p = placement(v.dir, v.d);
       mesh.position.set(p.x, 0, p.z);
       mesh.rotation.y = p.heading;
+      // Parpadeo de la baliza de la ambulancia.
+      const baliza = mesh.userData.baliza as THREE.MeshStandardMaterial | undefined;
+      if (baliza) baliza.emissiveIntensity = Math.sin(t * 12) > 0 ? 2 : 0.1;
     }
     // Elimina los meshes de autos que ya salieron de la escena.
     for (const [id, mesh] of this.carPool) {
@@ -100,10 +162,12 @@ export class Scene {
     }
   }
 
-  /** Vacía todos los autos (al reiniciar la corrida). */
+  /** Vacía autos y peatones (al reiniciar la corrida). */
   clearVehicles(): void {
     for (const [, mesh] of this.carPool) this.scene.remove(mesh);
     this.carPool.clear();
+    for (const [, mesh] of this.pedPool) this.scene.remove(mesh);
+    this.pedPool.clear();
   }
 
   private resize(): void {
@@ -123,10 +187,15 @@ export class Scene {
       if (!this.paused) this.sim.update(dt, this.speed);
 
       const snap = this.sim.snapshot();
+      this.aplicarDiaNoche(snap.hora);
       for (const { mesh, group } of this.lights) {
         mesh.setState(group === 'NS' ? snap.ns : snap.ew, t);
       }
-      this.syncVehicles();
+      for (const { mesh, cruce } of this.pedSignals) {
+        mesh.setWalk(this.sim.peatonPuedeCruzar(cruce));
+      }
+      this.syncVehicles(t);
+      this.syncPedestrians();
       this.onStats?.(snap);
 
       this.controls.update();
