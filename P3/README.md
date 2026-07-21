@@ -53,7 +53,23 @@ Controles de la escena: **arrastrar** para orbitar, **rueda** para zoom,
 
 Las reglas son **funciones puras** en `core/rules.ts` (paradigma funcional);
 el controlador inteligente las compone por prioridad. Los botones de sensores
-simulan lo que enviará el ESP32 desde Wokwi (Fase 3 — puente MQTT, siguiente paso).
+generan los mismos eventos que envía el ESP32 desde Wokwi (Fase 3.5 — puente MQTT).
+
+## Estado actual — Fase 3.5 (Puente Wokwi / MQTT) ✅
+
+| Pieza | Estado |
+|---|---|
+| `client/src/wokwi/Bridge.ts` — MQTT (WebSocket) en el navegador | ✅ eventos del ESP32 → misma API de sensores |
+| Canal de regreso: estado del semáforo → LEDs del ESP32 | ✅ publica solo al cambiar de fase (retained) |
+| `wokwi/` — ESP32 MicroPython (4 botones + 6 LEDs) | ✅ versionado; ver `wokwi/README.md` |
+| Badge de conexión + fuente del último evento en el HUD | ✅ "🚑 ambulancia — desde Wokwi" |
+| Verificación end-to-end vía `broker.hivemq.com` | ✅ ambas direcciones (evento entrante y estado saliente) |
+
+Topics: `smart-traffic-light-group-4/{eventos,estado}`. Monitor de diagnóstico:
+`node client/scripts/mqtt-listen.mjs`. Si el broker público falla, los botones
+de la UI siguen funcionando (misma API de sensores). Nota para la demo: la
+pestaña de la app debe estar visible — el navegador pausa la simulación (y sus
+publicaciones) en pestañas de fondo.
 
 Controles en pantalla: **modo** inteligente/tradicional, **sensores** (carro N-S/E-O,
 peatón, ambulancia), **hora del día**, velocidad **x1/x5/x20**, **pausa**,
@@ -83,8 +99,6 @@ P3/
 
 ## Próximo
 
-- **Puente Wokwi (MQTT):** un ESP32 con push buttons publica señales de sensores
-  a un broker MQTT; la app se suscribe y alimenta la simulación (mismo efecto
-  que los botones en pantalla, pero desde hardware simulado).
 - **Fase 4:** persistencia (SQLite vía API) y dashboards con Chart.js.
+  La tabla `events` registra la fuente de cada evento (`ui` | `wokwi`).
 - **Fase 5:** comparación A/B en vivo (fijo vs inteligente, misma semilla).

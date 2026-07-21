@@ -63,6 +63,17 @@ export const RULES: readonly RuleSpec[] = [
   { id: 'DEFAULT', priority: 5, descripcion: 'Tiempos base del ciclo' },
 ] as const;
 
+// ─── Fuente de los eventos de sensor (Fase 3.5) ───────────────────────
+// Un mismo evento puede nacer en la UI o en el ESP32 de Wokwi vía MQTT.
+// La simulación no distingue; la fuente solo se registra para los históricos.
+export type EventSource = 'ui' | 'wokwi';
+
+// Mensaje que publica el ESP32 en el topic de eventos (contrato del puente).
+export interface WokwiEventMsg {
+  tipo: 'carro' | 'peaton' | 'ambulancia';
+  dir?: Direction; // dirección de llegada; irrelevante para 'peaton'
+}
+
 // ─── Lecturas de sensores (entrada del controlador) ───────────────────
 export interface SensorReading {
   colaPorVia: Record<string, number>; // vehículos esperando por dirección

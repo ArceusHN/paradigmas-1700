@@ -2,6 +2,7 @@ import {
   DIRECTIONS,
   GROUP_OF,
   type Direction,
+  type EventSource,
   type Group,
   type LightState,
   type Mode,
@@ -35,6 +36,13 @@ const COLORES = [0x4f8cff, 0xff6b6b, 0xffd166, 0x8ce99a, 0xb197fc, 0xffa94d, 0xe
 /** Colores de ropa de los peatones. */
 const ROPA = [0x3b82f6, 0xef4444, 0x22c55e, 0xf59e0b, 0xa855f7, 0x14b8a6];
 
+/** Último evento de sensor recibido (para el HUD y los históricos). */
+export interface SensorEvent {
+  tipo: 'carro' | 'peaton' | 'ambulancia';
+  fuente: EventSource;
+  simTime: number;
+}
+
 /** Instantánea de estado para el render y el HUD (el render sólo lee). */
 export interface Snapshot {
   simTime: number;
@@ -47,6 +55,7 @@ export interface Snapshot {
   emergencia: string | null;
   ns: LightState;
   ew: LightState;
+  ultimoEvento: SensorEvent | null;
 }
 
 /**
@@ -75,6 +84,7 @@ export class Simulation {
   private peatonInput = false;
   private horaInput = 12;
   private trafico: Record<Group, number> = { NS: 1, EW: 1 };
+  private ultimoEvento: SensorEvent | null = null;
 
   constructor(cfg: SimConfig) {
     this.cfg = cfg;
@@ -97,6 +107,7 @@ export class Simulation {
     this.nextId = 1;
     this.nextPedId = 1;
     this.peatonInput = false;
+    this.ultimoEvento = null;
   }
 
   // ── API de sensores/eventos (la usan la UI y el puente Wokwi) ──
@@ -110,14 +121,16 @@ export class Simulation {
     this.trafico[g] = factor;
   }
   /** Botón/sensor: "carro detectado" → mete un vehículo en esa vía. */
-  detectarCarro(dir: Direction): void {
+  detectarCarro(dir: Direction, fuente: EventSource = 'ui'): void {
+    this.ultimoEvento = { tipo: 'carro', fuente, simTime: this.simTime };
     if (this.puedeAparecer(dir)) {
       const color = COLORES[this.nextId % COLORES.length];
       this.lanes[dir].push(new Vehicle(this.nextId++, dir, SPAWN_DIST, color, this.simTime));
     }
   }
   /** Botón: peatón esperando cruzar. Aparecen peatones en los cuatro cruces. */
-  pedirPeaton(): void {
+  pedirPeaton(fuente: EventSource = 'ui'): void {
+    this.ultimoEvento = { tipo: 'peaton', fuente, simTime: this.simTime };
     this.peatonInput = true;
     for (const cruce of DIRECTIONS) {
       const enEspera = this.peatones.filter((p) => p.cruce === cruce && p.progreso < 0.05).length;
@@ -128,7 +141,8 @@ export class Simulation {
     }
   }
   /** Botón/RFID: ambulancia entrando por una vía. */
-  enviarAmbulancia(dir: Direction): void {
+  enviarAmbulancia(dir: Direction, fuente: EventSource = 'ui'): void {
+    this.ultimoEvento = { tipo: 'ambulancia', fuente, simTime: this.simTime };
     this.lanes[dir].push(new Vehicle(this.nextId++, dir, SPAWN_DIST, 0xffffff, this.simTime, true));
   }
 
@@ -173,6 +187,7 @@ export class Simulation {
       emergencia: r.emergenciaEnVia,
       ns: this.controller.state('NS'),
       ew: this.controller.state('EW'),
+      ultimoEvento: this.ultimoEvento,
     };
   }
 

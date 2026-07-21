@@ -58,6 +58,8 @@ P3/
 │       │   ├── SensorPanel.ts      # Sliders y botones (HTML sobre el canvas)
 │       │   ├── LiveDashboard.ts    # Métricas de la corrida actual (memoria)
 │       │   └── HistoryDashboard.ts # Consulta la API + Chart.js
+│       ├── wokwi/
+│       │   └── Bridge.ts           # Puente MQTT ↔ ESP32 simulado (Fase 3.5)
 │       └── api.ts              # Cliente REST tipado
 ├── server/                     # Node.js + Express + TypeScript
 │   └── src/
@@ -65,6 +67,9 @@ P3/
 │       ├── routes/runs.ts      # Endpoints
 │       ├── db.ts               # better-sqlite3 + esquema
 │       └── queries.ts          # Agregaciones SQL
+├── wokwi/                      # Gemelo físico simulado (proyecto de wokwi.com, versionado)
+│   ├── main.py                 # MicroPython: botones → MQTT, MQTT → LEDs
+│   └── diagram.json            # ESP32 + push buttons + LEDs del semáforo
 └── shared/
     └── types.ts                # CycleMetric, RunSummary, etc. (los usan ambos)
 ```
@@ -111,7 +116,7 @@ El modo "tradicional" usa el mismo motor ignorando las reglas 1–4 — así la 
 
 - **`runs`** — `id, modo (fijo|inteligente), semilla, config JSON, iniciada_en`
 - **`cycle_metrics`** — `run_id, tiempo_sim, espera_promedio, vehiculos_procesados, cola_maxima, peatones_atendidos, emergencias`
-- **`events`** — `run_id, tiempo_sim, tipo (peaton|emergencia|modo_nocturno), direccion`
+- **`events`** — `run_id, tiempo_sim, tipo (peaton|emergencia|modo_nocturno), direccion, fuente (ui|wokwi)`
 
 ### Los dos dashboards
 
@@ -140,9 +145,29 @@ El modo "tradicional" usa el mismo motor ignorando las reglas 1–4 — así la 
 - Render: ambulancia con luces parpadeantes, peatones, ciclo día/noche, amarillo intermitente.
 - **Entregable:** el semáforo reacciona en vivo a lo que el usuario manipula.
 
+### Fase 3.5 — Puente Wokwi (MQTT): sensores físicos simulados
+- `client/src/wokwi/Bridge.ts`: cliente MQTT sobre WebSocket en el navegador.
+  Mapea mensajes JSON del ESP32 (`{"tipo":"carro","dir":"N"}`) a la **misma API
+  de sensores** que usan los botones de la UI (`detectarCarro`, `pedirPeaton`,
+  `enviarAmbulancia`) — el núcleo no distingue de dónde vino el evento.
+- **Bidireccional:** la app publica el estado del semáforo (solo al cambiar,
+  nunca por frame) y el ESP32 lo refleja en LEDs — un gemelo físico del
+  semáforo 3D, no solo un control remoto.
+- Carpeta `wokwi/` versionada: `main.py` (MicroPython) + `diagram.json`
+  (push buttons de sensores + LEDs por grupo N–S / E–O).
+- Broker público (`broker.hivemq.com`; alternativas `broker.emqx.io`,
+  `test.mosquitto.org`) con prefijo de topic único del grupo:
+  `smart-traffic-light-group-4/{eventos,estado}`.
+- UI: badge de conexión Wokwi + último evento recibido con su fuente.
+- **Entregable:** un botón físico en la pestaña de Wokwi dispara eventos en la
+  simulación 3D, y los LEDs del ESP32 siguen al semáforo en tiempo real.
+
 ### Fase 4 — Históricos y dashboards
 - Server: esquema SQLite + los 5 endpoints; `Stats.ts` bufferea y postea por lote.
 - Dashboard en vivo (memoria) y dashboard histórico (API + Chart.js).
+- La tabla `events` registra la **fuente** de cada evento (`ui` | `wokwi`):
+  el dashboard histórico puede evidenciar la integración IoT con datos
+  ("eventos disparados desde hardware"), no solo con la demo visual.
 - **Entregable:** corridas persistidas y comparables entre sesiones.
 
 ### Fase 5 — Plus distintivo: comparación A/B en vivo
@@ -178,6 +203,7 @@ El modo "tradicional" usa el mismo motor ignorando las reglas 1–4 — así la 
 - **POO:** clases `TrafficLight`, `Controller`, `Vehicle`, `Sensors`; patrón **State** en la máquina de estados; **Observer** para que los sensores notifiquen al controlador.
 - **Funcional:** reglas de decisión como funciones puras en `rules.ts`; PRNG determinista — deterministas y testeables sin UI.
 - **Orientado a eventos / reactivo:** la simulación responde a sensores y usuario en tiempo real.
+- **Pub/sub asíncrono (MQTT):** el patrón Observer extendido a través de la red — un ESP32 (Wokwi) publica sensores y consume el estado del semáforo vía broker; la app y el hardware no se conocen entre sí, solo comparten topics.
 - **Tipado estático (TypeScript):** estados como union types (`'VERDE' | 'AMARILLO' | ...`), contratos compartidos cliente/servidor en `shared/types.ts`.
 - **Cliente-servidor / declarativo:** REST + SQL de agregación para los históricos.
 
@@ -191,4 +217,5 @@ El modo "tradicional" usa el mismo motor ignorando las reglas 1–4 — así la 
 | Backend caído en la demo | La simulación y el dashboard en vivo no dependen de la API |
 | A/B no comparable | Demanda con semilla desde Fase 2; test de reproducibilidad en Fase 6 |
 | Ciclos largos aburren la demo | Reloj de simulación acelerable (x1, x5, x20) |
+| Broker MQTT público caído/lento en la demo | Los botones de la UI son el fallback (misma API de sensores); probar el broker 30 min antes; cambiar a `broker.emqx.io` o `test.mosquitto.org` es una constante |
 | Rendimiento con 2 intersecciones | Vehículos low-poly + `InstancedMesh` si hace falta; tope de autos por vía |

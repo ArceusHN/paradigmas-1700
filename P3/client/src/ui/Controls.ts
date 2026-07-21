@@ -1,6 +1,7 @@
 import type { Mode } from 'shared';
 import type { Simulation, Snapshot } from '../core/Simulation';
 import type { Scene } from '../render/Scene';
+import type { WokwiBridge } from '../wokwi/Bridge';
 
 /**
  * Panel de control + sensores (HTML sobre el canvas).
@@ -11,12 +12,14 @@ import type { Scene } from '../render/Scene';
  */
 export class Controls {
   private readonly stats: HTMLElement;
+  private wokwiBadge?: HTMLElement;
 
   constructor(
     private readonly sim: Simulation,
     private readonly scene: Scene,
     private seed: number,
     private rate: number,
+    bridge?: WokwiBridge,
   ) {
     const panel = document.getElementById('panel')!;
 
@@ -111,6 +114,19 @@ export class Controls {
     cfgBox.appendChild(restart);
     panel.appendChild(cfgBox);
 
+    // ── Puente Wokwi (Fase 3.5) ────────────────────────────────
+    if (bridge) {
+      const wokwiBox = this.grupo('Hardware (Wokwi)');
+      this.wokwiBadge = document.createElement('span');
+      this.wokwiBadge.className = 'val';
+      this.wokwiBadge.textContent = '🔌 conectando…';
+      wokwiBox.appendChild(this.wokwiBadge);
+      panel.appendChild(wokwiBox);
+      bridge.onStatus = (ok) => {
+        this.wokwiBadge!.textContent = ok ? '🟢 conectado' : '🔴 sin conexión';
+      };
+    }
+
     // ── Lectura en vivo ────────────────────────────────────────
     this.stats = document.createElement('div');
     this.stats.id = 'stats';
@@ -143,6 +159,11 @@ export class Controls {
     const alertas: string[] = [];
     if (s.emergencia) alertas.push(`🚑 emergencia vía ${s.emergencia}`);
     if (s.peaton) alertas.push('🚶 peatón esperando');
+    if (s.ultimoEvento && s.simTime - s.ultimoEvento.simTime < 10) {
+      const icono = { carro: '🚗', peaton: '🚶', ambulancia: '🚑' }[s.ultimoEvento.tipo];
+      const fuente = s.ultimoEvento.fuente === 'wokwi' ? 'Wokwi' : 'UI';
+      alertas.push(`${icono} ${s.ultimoEvento.tipo} — desde ${fuente}`);
+    }
     this.stats.innerHTML = `
       <div>⏱ ${s.simTime.toFixed(1)} s &nbsp; 🕐 ${String(s.hora).padStart(2, '0')}:00</div>
       <div>N–S ${luz(s.ns)} (${colaNS}) &nbsp; E–O ${luz(s.ew)} (${colaEW})</div>

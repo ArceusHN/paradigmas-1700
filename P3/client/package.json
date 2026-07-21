@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "mqtt": "^5.15.2",
     "shared": "*",
     "three": "^0.169.0"
   },
