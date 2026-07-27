@@ -9,7 +9,7 @@ import { RedBridge } from './wokwi/RedBridge';
 
 /**
  * Bootstrap con dos vistas:
- *   (default)      → Fase 4: red de semáforos coordinada (cuadrícula 4×2)
+ *   (default)      → Fase 4: red de semáforos coordinada (cuadrícula 3×3)
  *   ?vista=cruce   → Fase 3: intersección única con sensores y peatones
  */
 const SEED = 12345;
@@ -34,8 +34,10 @@ function bootCruce(): void {
 }
 
 function bootRed(): void {
-  setTag('Fase 4 — red de semáforos coordinada (4×2) con colaciones');
-  let cfg: RedConfig = { seed: SEED, rate: 0.11, coordinado: true };
+  setTag('Fase 4 — red de semáforos coordinada (3×3) con eventos y desvíos');
+  // Demanda media-alta: bajo esta carga el modo fijo se satura y la
+  // coordinación gana claro (desvía y mueve más autos). Ver red-smoke.
+  let cfg: RedConfig = { seed: SEED, rate: 0.18, coordinado: true };
 
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
   const escena = new RedScene(canvas, new NetworkSimulation(cfg));

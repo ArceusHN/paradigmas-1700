@@ -1,6 +1,6 @@
 # Semáforo Inteligente 3D
 
-Simulación de una red de semáforos inteligentes coordinados (cuadrícula 4×2)
+Simulación de una red de semáforos inteligentes coordinados (cuadrícula 3×3)
 con gemelo físico en Wokwi. Proyecto del 3er parcial de
 **Paradigmas de la Programación**.
 
@@ -106,7 +106,7 @@ P3/
 | Entregable de la Fase 4 | Estado |
 |---|---|
 | 4.1 Grafo de la red + autos con ruta (origen→destino) | ✅ `core/Graph.ts`, `core/Router.ts` (Dijkstra, pesos vivos), `core/Network.ts` |
-| 4.2 Render de la cuadrícula 4×2 (8 semáforos) | ✅ `render/RedScene.ts` (calles con contraste, manzanas, 32 postes, marcadores de evento) |
+| 4.2 Render de la cuadrícula 3×3 (9 semáforos, con nodo interior) | ✅ `render/RedScene.ts` (calles con contraste, manzanas, 36 postes, marcadores de evento) |
 | 4.3 Eventos: **congestión** (cola) y **colisión** (bloqueo) | ✅ botones UI + push buttons del ESP32; colisión también emergente (choque real) |
 | 4.4 Mensajería entre semáforos | ✅ `core/Bus.ts` en memoria (determinista) espejado a MQTT (`red/eventos`) |
 | 4.5 Algoritmo: re-ruteo + verdes coordinados | ✅ peso = largo + k·cola + castigo por congestión/colisión; anticipación con avisos `flujo` |
