@@ -541,7 +541,7 @@ export class NetworkSimulation {
   }
 
   private registrarColision(a: NetVehicle, b: NetVehicle, x: number, z: number): void {
-    // Nodo más cercano al punto del choque (la cuadrícula es chica: 8 nodos).
+    // Nodo más cercano al punto del choque (la cuadrícula es chica: 9 nodos).
     let nodo = 'A1';
     let mejor = Infinity;
     for (const n of this.graph.nodes.values()) {

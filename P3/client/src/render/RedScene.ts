@@ -12,7 +12,7 @@ const COLOR_DIA = new THREE.Color(0x1b2a44);
 const COLOR_NOCHE = new THREE.Color(0x05060a);
 
 /**
- * Escena de la RED (Fase 4): cuadrícula 4×2 de intersecciones. Igual que en
+ * Escena de la RED (Fase 4): cuadrícula 3×3 de intersecciones. Igual que en
  * la Fase 2/3, el render solo LEE el estado del núcleo (`vehiclesRender()`,
  * `snapshot()`) y lo pinta — ninguna decisión de simulación vive aquí.
  */
@@ -84,7 +84,8 @@ export class RedScene {
     this.scene.fog = new THREE.Fog(0x1b2a44, 300, 700);
 
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1200);
-    this.camera.position.set(0, 150, 170);
+    // Encuadre para la cuadrícula cuadrada 3×3 (abarca ~±100 en X y Z).
+    this.camera.position.set(0, 170, 195);
 
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;

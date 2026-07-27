@@ -166,7 +166,7 @@ El modo "tradicional" usa el mismo motor ignorando las reglas 1–4 — así la 
   simulación 3D, y los LEDs del ESP32 siguen al semáforo en tiempo real.
 
 ### Fase 4 — Red de semáforos: cuadrícula, eventos y coordinación
-**(Requerimiento del ingeniero.)** Cuadrícula de ~8 intersecciones (4×2) donde un
+**(Requerimiento del ingeniero.)** Cuadrícula de ~9 intersecciones (3×3, con nodo interior) donde un
 evento localizado hace que los semáforos se avisen entre sí, desvíen el tráfico y
 ajusten sus verdes para mantener el flujo. Dos tipos de evento:
 - **Congestión** — una cola crítica de autos satura una vía (la palabra que el
@@ -229,7 +229,7 @@ ajusten sus verdes para mantener el flujo. Dos tipos de evento:
 
 > **Regla de oro:** el 3D se pule al final. Primero el cerebro con geometría
 > simple; si el tiempo se acorta, el orden de recorte dentro de la Fase 4 es:
-> menos nodos (2×2 en vez de 4×2), verdes coordinados simplificados (solo drenaje),
+> menos nodos (2×2 en vez de 3×3), verdes coordinados simplificados (solo drenaje),
 > pero **nunca** recortar el re-ruteo — es el algoritmo que pide el enunciado.
 
 ---
@@ -245,7 +245,7 @@ ajusten sus verdes para mantener el flujo. Dos tipos de evento:
 | Registro/histórico del día | Fase 5 (SQLite vía API) |
 | Backend/datos (Node.js + BD) sugerido por el PDF | Fase 5 |
 | Modo coordinación "ola verde" | Fase 4.5 |
-| **Nuevo (ingeniero):** cuadrícula ~8 semáforos + eventos (congestión/colisión) + comunicación + algoritmo de desvío | Fase 4 completa |
+| **Nuevo (ingeniero):** cuadrícula ~9 semáforos (3×3) + eventos (congestión/colisión) + comunicación + algoritmo de desvío | Fase 4 completa |
 
 ## 6. Paradigmas demostrados (para la evaluación)
 
@@ -268,6 +268,6 @@ ajusten sus verdes para mantener el flujo. Dos tipos de evento:
 | ON vs OFF no comparable | Demanda con semilla desde Fase 2; test de reproducibilidad en Fase 6 |
 | Ciclos largos aburren la demo | Reloj de simulación acelerable (x1, x5, x20) |
 | Broker MQTT público caído/lento en la demo | Los botones de la UI son el fallback (misma API de sensores); probar el broker 30 min antes; cambiar a `broker.emqx.io` o `test.mosquitto.org` es una constante |
-| Rendimiento con 8 intersecciones | Vehículos low-poly + `InstancedMesh`; tope de autos por arista; cuadrícula recortable a 2×2 |
+| Rendimiento con 9 intersecciones | Vehículos low-poly + `InstancedMesh`; tope de autos por arista; cuadrícula recortable a 2×2 |
 | **Subestimar el refactor vehicular (4.1)** | Es el cuello de botella: empezarlo primero y en paralelo al render; el bus de mensajes y el algoritmo se enchufan después |
 | La coordinación depende del broker | El bus entre semáforos es **en memoria** (determinista); MQTT es solo espejo/observabilidad — si el broker cae, la red sigue coordinando |

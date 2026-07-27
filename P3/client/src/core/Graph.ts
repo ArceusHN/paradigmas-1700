@@ -11,8 +11,8 @@ import { LANE_OFFSET, STOP_LINE } from './world';
  * (NS/EW) le da paso, y los controladores existentes funcionan sin cambios.
  */
 
-export const GRID_COLS = 4;
-export const GRID_ROWS = 2;
+export const GRID_COLS = 3;
+export const GRID_ROWS = 3;
 /** Distancia entre intersecciones (centro a centro). */
 export const BLOCK = 60;
 /** Largo de las aristas de entrada/salida en el borde de la cuadrícula. */
