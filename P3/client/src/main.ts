@@ -35,9 +35,9 @@ function bootCruce(): void {
 
 function bootRed(): void {
   setTag('Fase 4 — red de semáforos coordinada (3×3) con eventos y desvíos');
-  // Demanda media-alta: bajo esta carga el modo fijo se satura y la
-  // coordinación gana claro (desvía y mueve más autos). Ver red-smoke.
-  let cfg: RedConfig = { seed: SEED, rate: 0.18, coordinado: true };
+  // Demanda media: red activa pero calmada. El contraste del A/B es más suave
+  // que a demanda alta, pero se observa mejor el comportamiento. Ver red-smoke.
+  let cfg: RedConfig = { seed: SEED, rate: 0.14, coordinado: true };
 
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
   const escena = new RedScene(canvas, new NetworkSimulation(cfg));
