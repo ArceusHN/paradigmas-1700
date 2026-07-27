@@ -1,7 +1,7 @@
-# Semaforo Inteligente 3D - Fase 3.5: gemelo fisico (ESP32 en Wokwi)
+# Semaforo Inteligente 3D - Fase 4: gemelo fisico de la red (ESP32 en Wokwi)
 #
-# - Botones = sensores fisicos: publican eventos JSON al topic de eventos.
-# - LEDs = semaforo fisico: reflejan el estado que la app publica (retained).
+# - Botones = eventos/sensores fisicos: publican JSON al topic de eventos.
+# - LEDs = semaforo fisico: reflejan el estado del nodo activo (retained).
 # El ESP32 y la app nunca se ven: ambos hablan con el broker publico.
 
 import network
@@ -21,12 +21,18 @@ LEDS = {
     "ew": {"ROJO": Pin(33, Pin.OUT), "AMARILLO": Pin(32, Pin.OUT), "VERDE": Pin(21, Pin.OUT)},
 }
 
-# Botones de sensores (PULL_UP: presionado = 0) -> mensaje que publica cada uno
+# Botones (PULL_UP: presionado = 0) -> mensaje que publica cada uno.
+# Los eventos actuan sobre el NODO ACTIVO elegido en el panel de la app (el
+# mismo nodo que espejan los LEDs):
+#   - congestion: satura de autos el nodo activo (cola que se desvia).
+#   - colision:   choque que BLOQUEA la via del nodo activo (se re-rutea).
+#   - carro / peaton / ambulancia: los sensores de siempre (Fase 3).
 BOTONES = [
-    (Pin(4, Pin.IN, Pin.PULL_UP), {"tipo": "carro", "dir": "N"}, "carro N-S"),
-    (Pin(5, Pin.IN, Pin.PULL_UP), {"tipo": "carro", "dir": "E"}, "carro E-O"),
+    (Pin(4, Pin.IN, Pin.PULL_UP), {"tipo": "congestion"}, "congestion (nodo activo)"),
+    (Pin(23, Pin.IN, Pin.PULL_UP), {"tipo": "colision"}, "colision (nodo activo)"),
+    (Pin(5, Pin.IN, Pin.PULL_UP), {"tipo": "carro", "dir": "N"}, "carro"),
     (Pin(18, Pin.IN, Pin.PULL_UP), {"tipo": "peaton"}, "peaton"),
-    (Pin(19, Pin.IN, Pin.PULL_UP), {"tipo": "ambulancia", "dir": "N"}, "ambulancia N-S"),
+    (Pin(19, Pin.IN, Pin.PULL_UP), {"tipo": "ambulancia", "dir": "N"}, "ambulancia"),
 ]
 
 estado = {"ns": "ROJO", "ew": "ROJO"}

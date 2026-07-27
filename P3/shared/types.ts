@@ -74,6 +74,24 @@ export interface WokwiEventMsg {
   dir?: Direction; // dirección de llegada; irrelevante para 'peaton'
 }
 
+// ─── Red de semáforos (Fase 4) ─────────────────────────────────────────
+// La cuadrícula es un grafo: nodos = intersecciones ("A1".."D2"),
+// aristas = cuadras dirigidas ("A1>B1", "ext>A1:O", "A1>ext:E").
+export type NodeId = string;
+export type EdgeId = string;
+
+/**
+ * Mensajes que los semáforos intercambian por el bus (espejados a MQTT).
+ * - congestion/despeje: un nodo detectó (o liberó) una colación en un acceso.
+ * - flujo: aviso periódico a un vecino de cuántos autos van hacia él.
+ */
+export type NetMsg =
+  | { evento: 'congestion'; nodo: NodeId; arista: EdgeId; cola: number }
+  | { evento: 'despeje'; nodo: NodeId; arista: EdgeId; duracion: number }
+  | { evento: 'flujo'; de: NodeId | 'ext'; hacia: NodeId; arista: EdgeId; autos: number }
+  | { evento: 'colision'; nodo: NodeId; arista: EdgeId; s: number }
+  | { evento: 'colision_despejada'; nodo: NodeId; arista: EdgeId; duracion: number };
+
 // ─── Lecturas de sensores (entrada del controlador) ───────────────────
 export interface SensorReading {
   colaPorVia: Record<string, number>; // vehículos esperando por dirección

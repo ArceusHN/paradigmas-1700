@@ -18,6 +18,9 @@ export function createCarMesh(color: number, esEmergencia = false): THREE.Group 
   );
   cuerpo.position.y = 0.55;
   auto.add(cuerpo);
+  // La escena usa esto para pintar en gris a los autos accidentados (Fase 4).
+  auto.userData.cuerpo = cuerpo.material;
+  auto.userData.colorBase = color;
 
   const cabina = new THREE.Mesh(
     new THREE.BoxGeometry(1.4, 0.7, 1.4),

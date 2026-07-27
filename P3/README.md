@@ -1,7 +1,11 @@
 # Semáforo Inteligente 3D
 
-Simulación de una intersección con semáforo de decisión inteligente.
-Proyecto del 3er parcial de **Paradigmas de la Programación**.
+Simulación de una red de semáforos inteligentes coordinados (cuadrícula 4×2)
+con gemelo físico en Wokwi. Proyecto del 3er parcial de
+**Paradigmas de la Programación**.
+
+Vistas: la app abre en la **red** (Fase 4); la intersección única de la
+Fase 3 sigue disponible en `?vista=cruce`.
 
 El diseño completo (fases, arquitectura, reglas) está en [PLAN.md](PLAN.md).
 
@@ -97,8 +101,34 @@ P3/
     └── src/index.ts
 ```
 
+## Estado actual — Fase 4 (Red de semáforos: cuadrícula, eventos y coordinación) ✅
+
+| Entregable de la Fase 4 | Estado |
+|---|---|
+| 4.1 Grafo de la red + autos con ruta (origen→destino) | ✅ `core/Graph.ts`, `core/Router.ts` (Dijkstra, pesos vivos), `core/Network.ts` |
+| 4.2 Render de la cuadrícula 4×2 (8 semáforos) | ✅ `render/RedScene.ts` (calles con contraste, manzanas, 32 postes, marcadores de evento) |
+| 4.3 Eventos: **congestión** (cola) y **colisión** (bloqueo) | ✅ botones UI + push buttons del ESP32; colisión también emergente (choque real) |
+| 4.4 Mensajería entre semáforos | ✅ `core/Bus.ts` en memoria (determinista) espejado a MQTT (`red/eventos`) |
+| 4.5 Algoritmo: re-ruteo + verdes coordinados | ✅ peso = largo + k·cola + castigo por congestión/colisión; anticipación con avisos `flujo` |
+| 4.6 Validación ON vs OFF (misma semilla) | ✅ `client/scripts/red-smoke.ts`: métrica de **throughput** (la espera promedio se confunde con el gridlock) |
+| Calidad de movimiento en giros | ✅ curva de Bézier + separación en espacio-mundo dentro del cruce (roces: de ~46 a ~5 por 100 autos) |
+| Detector y análisis de roces | ✅ `client/scripts/red-collisions.ts` clasifica las circunstancias de cada roce |
+
+Cada semáforo es un **agente**: decide con sus sensores locales + mensajes de
+vecinos — no hay controlador central; el desvío del tráfico es emergente.
+El panel (con pestañas Red / Sensores / Simulación) muestra la "conversación de
+la red" en vivo y permite alternar **coordinada / fija** con la misma semilla.
+
+- **Congestión**: satura una vía con una ráfaga → cola → aviso → desvío.
+- **Colisión**: bloquea un tramo (obstáculo) unos segundos → la red lo evita →
+  se despeja sola. Provocable por botón o emergente (choque real).
+
+Verificación headless: `npx tsx client/scripts/red-smoke.ts` (determinismo +
+throughput ON/OFF + ciclo del incidente de colisión) y
+`npx tsx client/scripts/red-collisions.ts` (análisis de roces).
+
 ## Próximo
 
-- **Fase 4:** persistencia (SQLite vía API) y dashboards con Chart.js.
-  La tabla `events` registra la fuente de cada evento (`ui` | `wokwi`).
+- **Fase 5:** persistencia (SQLite vía API) y dashboards con Chart.js, con
+  métricas de red. La tabla `events` registra la fuente (`ui` | `wokwi`).
 - **Fase 5:** comparación A/B en vivo (fijo vs inteligente, misma semilla).

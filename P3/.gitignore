@@ -5,3 +5,13 @@ dist/
 *.sqlite
 *.sqlite-journal
 .env
+
+# Artefactos locales de herramientas (no versionar)
+.claude/
+.playwright-mcp/
+
+# Capturas y material de referencia (no forman parte del codigo)
+*.png
+*.jpg
+*.jpeg
+*.pdf
