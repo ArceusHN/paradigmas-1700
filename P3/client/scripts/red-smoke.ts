@@ -11,7 +11,7 @@ import { NetworkSimulation } from '../src/core/Network';
  */
 
 const SEED = 42;
-const RATE = 0.18; // demanda media-alta (misma que la demo): el fijo se satura
+const RATE = 0.14; // demanda media (misma que la demo)
 const NODO_COLACION = 'B1';
 
 interface Resultado {
