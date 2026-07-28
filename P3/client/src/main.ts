@@ -6,6 +6,7 @@ import { Controls } from './ui/Controls';
 import { RedControls } from './ui/RedControls';
 import { WokwiBridge } from './wokwi/Bridge';
 import { RedBridge } from './wokwi/RedBridge';
+import { setFase } from './ui/Shell';
 
 /**
  * Bootstrap con dos vistas:
@@ -16,7 +17,7 @@ const SEED = 12345;
 
 function bootCruce(): void {
   const RATE = 0.3;
-  setTag('Fase 3 — semáforo inteligente con sensores');
+  setFase('Fase 3 — intersección con sensores');
   const sim = new Simulation({ seed: SEED, rate: RATE });
   const bridge = new WokwiBridge(sim);
 
@@ -34,7 +35,7 @@ function bootCruce(): void {
 }
 
 function bootRed(): void {
-  setTag('Fase 4 — red de semáforos coordinada (3×3) con eventos y desvíos');
+  setFase('Fase 4 — red coordinada 3×3');
   // Demanda media: red activa pero calmada. El contraste del A/B es más suave
   // que a demanda alta, pero se observa mejor el comportamiento. Ver red-smoke.
   let cfg: RedConfig = { seed: SEED, rate: 0.14, coordinado: true };
@@ -54,12 +55,19 @@ function bootRed(): void {
         escena.sim.setHora(horaActual);
         conectarSim();
       },
-      congestion(nodo) {
-        escena.sim.generarCongestion(nodo, 24, 'ui');
-        controls.registrarTexto(`⚠ congestión generada en ${nodo} — desde UI`);
+      congestion(nodo, acceso) {
+        escena.sim.generarCongestion(nodo, 24, 'ui', acceso);
+        controls.registrarTexto(`⚠ congestión generada en ${nodo}${acceso ? ` (acceso ${acceso})` : ''}`);
       },
-      colision(nodo) {
-        escena.sim.provocarColision(nodo, 'ui'); // el bus narra el incidente
+      colision(nodo, acceso) {
+        // El bus narra el incidente; solo avisamos si no se pudo provocar.
+        if (!escena.sim.provocarColision(nodo, 'ui', acceso)) {
+          controls.registrarTexto(
+            acceso
+              ? `sin acceso ${acceso} libre en ${nodo} (ya bloqueado o en enfriamiento)`
+              : `no se pudo provocar la colisión en ${nodo}`,
+          );
+        }
       },
       carro() {
         escena.sim.inyectarCarro('ui');
@@ -109,13 +117,15 @@ function bootRed(): void {
   conectarSim();
 
   bridge.onStatus = (ok) => controls.setWokwi(ok);
+  // Los botones físicos respetan el nodo y el acceso elegidos en el panel.
   bridge.onCongestion = (nodo) => {
     const destino = nodo ?? controls.nodoActivo;
-    escena.sim.generarCongestion(destino, 24, 'wokwi');
+    escena.sim.generarCongestion(destino, 24, 'wokwi', controls.accesoActivo);
     controls.registrarTexto(`⚠ congestión generada en ${destino} — desde Wokwi`);
   };
   bridge.onColision = (nodo) => {
-    escena.sim.provocarColision(nodo ?? controls.nodoActivo, 'wokwi'); // el bus narra
+    // el bus narra el incidente
+    escena.sim.provocarColision(nodo ?? controls.nodoActivo, 'wokwi', controls.accesoActivo);
   };
   bridge.onCarro = () => {
     escena.sim.inyectarCarro('wokwi');
@@ -138,12 +148,7 @@ function bootRed(): void {
     if (luzNodo) bridge.publicarEstado(luzNodo.ns, luzNodo.ew);
   };
   escena.start();
-  console.log('🚦 Semáforo Inteligente 3D — vista red (Fase 4: cuadrícula + colaciones + MQTT)');
-}
-
-function setTag(texto: string): void {
-  const tag = document.querySelector('#hud .tag');
-  if (tag) tag.textContent = texto;
+  console.log('🚦 Semáforo Inteligente 3D — vista red (Fase 4: cuadrícula + eventos + MQTT)');
 }
 
 const vista = new URLSearchParams(location.search).get('vista');

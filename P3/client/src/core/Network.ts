@@ -285,20 +285,24 @@ export class NetworkSimulation {
 
   /**
    * Provoca una colisión que bloquea una vía de acceso al nodo (botón UI/Wokwi).
-   * Elige el acceso con más autos cerca del cruce; marca hasta 2 como
-   * accidentados (serán el obstáculo) o, si no hay, deja un obstáculo-marcador.
+   * Con `acceso` se elige la calle exacta (N/S/E/O); sin él, la que tenga más
+   * autos cerca del cruce. Marca hasta 2 autos como accidentados (serán el
+   * obstáculo) o, si no hay, deja un obstáculo-marcador.
    */
-  provocarColision(nodo: NodeId, fuente: EventSource = 'ui'): boolean {
+  provocarColision(nodo: NodeId, fuente: EventSource = 'ui', acceso?: Direction): boolean {
     void fuente;
     if (this.incidentes.size >= MAX_INCIDENTES) return false;
     const libres = (this.graph.entrantes.get(nodo) ?? []).filter(
-      (e) => !this.incidentes.has(e.id) && (this.cooldownColision.get(e.id) ?? 0) <= this.simTime,
+      (e) =>
+        (!acceso || e.dir === acceso) &&
+        !this.incidentes.has(e.id) &&
+        (this.cooldownColision.get(e.id) ?? 0) <= this.simTime,
     );
     if (libres.length === 0) return false;
-    // Preferir aristas INTERNAS (con nodo aguas arriba): así hay un semáforo que
-    // pueda desviar el flujo. Solo si no hay, caer a una entrada del borde.
+    // Con acceso explícito se respeta esa calle; si no, se prefieren aristas
+    // INTERNAS (con nodo aguas arriba) para que haya un semáforo que desvíe.
     const internas = libres.filter((e) => e.from !== null);
-    const candidatas = internas.length > 0 ? internas : libres;
+    const candidatas = !acceso && internas.length > 0 ? internas : libres;
     const sCrash = (arista: Edge) => arista.length - STOP_LINE - 2;
     // Prefiere el acceso con autos cerca del punto de choque.
     const conteo = (e: Edge) =>
@@ -374,11 +378,21 @@ export class NetworkSimulation {
    * La CONGESTIÓN de la demo: precarga una fila de autos en los accesos del
    * nodo elegido (ráfaga). La cola emerge, el semáforo local la detecta con sus
    * sensores y avisa al resto de la red por el bus.
+   * Con `acceso` la ráfaga se concentra en esa calle; sin él, en ≤2 accesos.
    */
-  generarCongestion(nodo: NodeId, autos = 16, fuente: 'ui' | 'wokwi' = 'ui'): void {
+  generarCongestion(
+    nodo: NodeId,
+    autos = 16,
+    fuente: 'ui' | 'wokwi' = 'ui',
+    acceso?: Direction,
+  ): void {
     void fuente; // la fuente se persiste en Fase 5
-    // Concentrar la ráfaga en ≤2 accesos: colas más largas ⇒ congestión clara.
-    const corredores = this.corredoresHacia(nodo).slice(0, 2);
+    // Concentrar la ráfaga: en la calle pedida, o en ≤2 accesos (colas largas
+    // ⇒ congestión clara). El último tramo de cada corredor llega al nodo.
+    const todos = this.corredoresHacia(nodo);
+    const corredores = acceso
+      ? todos.filter((c) => c[c.length - 1].dir === acceso)
+      : todos.slice(0, 2);
     if (corredores.length === 0) return;
     for (let i = 0; i < autos; i++) {
       const corredor = corredores[i % corredores.length];

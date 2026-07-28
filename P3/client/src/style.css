@@ -19,55 +19,123 @@ body {
   height: 100vh;
 }
 
-#hud {
+/* ── Barra superior: título + métricas en vivo (siempre visible) ── */
+#topbar {
   position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 10;
-  padding: 14px 18px;
-  background: rgba(16, 20, 30, 0.72);
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(13, 17, 26, 0.86);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+#panel-toggle {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+  line-height: 1;
+  color: #e6e9ef;
+  background: #232936;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
-  max-width: 320px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
-#hud h1 {
-  font-size: 18px;
-  font-weight: 700;
+#panel-toggle:hover {
+  background: #2d3546;
 }
 
-#hud .tag {
-  margin-top: 4px;
+#topbar .marca {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#topbar .fase {
   font-size: 12px;
   color: #7ee787;
-  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-#hud .hint {
-  margin-top: 10px;
-  font-size: 12px;
-  color: #9aa4b2;
-  line-height: 1.4;
+/* Chips de métricas: a la derecha, sin que los números "bailen". */
+#chips {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ── Panel de control ─────────────────────────────────────── */
+#chips .chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 4px 9px;
+  font-size: 12.5px;
+  color: #e6e9ef;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+#chips .chip i {
+  font-style: normal;
+  opacity: 0.75;
+}
+
+#chips .chip.alerta {
+  color: #ff8a80;
+  background: rgba(255, 59, 48, 0.16);
+  border-color: rgba(255, 59, 48, 0.35);
+}
+
+/* ── Panel de control: drawer lateral colapsable (tecla P o ☰) ── */
 #panel {
   position: fixed;
-  bottom: 16px;
-  left: 16px;
+  top: 51px;
+  bottom: 12px;
+  left: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
-  width: 250px;
-  max-height: calc(100vh - 32px);
+  gap: 8px;
+  padding: 12px 14px;
+  width: 272px;
   overflow-y: auto;
-  background: rgba(16, 20, 30, 0.82);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  background: rgba(16, 20, 30, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+  backdrop-filter: blur(10px);
+  transition: transform 0.25s ease;
+}
+
+body.panel-cerrado #panel {
+  transform: translateX(-100%);
+}
+
+#panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+#panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
 }
 
 #panel .grupo {
@@ -79,15 +147,46 @@ body {
 
 #panel .grupo > label {
   width: 100%;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #9aa4b2;
+  letter-spacing: 0.06em;
+  color: #8b95a5;
+}
+
+/* Grupo en dos columnas: pares de botones (Coordinada/Fija, etc.). */
+#panel .grupo.duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+#panel .grupo.duo > label,
+#panel .grupo.duo > .minilog,
+#panel .grupo.duo > .accidentes,
+#panel .grupo.duo > select,
+#panel .grupo.duo > .reinicio {
+  grid-column: 1 / -1;
+}
+
+#panel .grupo.duo > button {
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Pista de cámara al pie del panel. */
+#panel .hint {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #7c8697;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 8px;
 }
 
 #panel button {
-  padding: 6px 10px;
-  font-size: 13px;
+  padding: 5px 9px;
+  font-size: 12.5px;
   color: #e6e9ef;
   background: #232936;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -138,8 +237,8 @@ body {
 }
 
 #stats {
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: 12.5px;
+  line-height: 1.6;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }

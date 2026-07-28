@@ -1,12 +1,14 @@
-import type { EdgeId, NetMsg, NodeId } from 'shared';
+import type { Direction, EdgeId, NetMsg, NodeId } from 'shared';
 import type { RedSnapshot } from '../core/Network';
 import type { RedScene } from '../render/RedScene';
+import { chip, setChips } from './Shell';
 
 /** Acciones que la UI delega en el bootstrap (main.ts). */
 export interface RedAcciones {
   reset(cambios: { seed?: number; coordinado?: boolean }): void;
-  congestion(nodo: NodeId): void;
-  colision(nodo: NodeId): void;
+  /** `acceso` = calle exacta del cruce (N/S/E/O); undefined = automático. */
+  congestion(nodo: NodeId, acceso?: Direction): void;
+  colision(nodo: NodeId, acceso?: Direction): void;
   carro(): void;
   peaton(nodo: NodeId): void;
   ambulancia(): void;
@@ -24,8 +26,10 @@ export interface RedAcciones {
  * más las nuevas de la red (coordinación ON/OFF, colación, conversación).
  */
 export class RedControls {
-  /** Nodo activo: destino de colación/peatón y nodo que espejan los LEDs del ESP32. */
+  /** Nodo activo: destino de los eventos y nodo que espejan los LEDs del ESP32. */
   nodoActivo: NodeId = 'B1';
+  /** Calle del cruce donde ocurren los eventos; undefined = automático. */
+  accesoActivo: Direction | undefined;
 
   private readonly stats: HTMLElement;
   private readonly log: HTMLElement;
@@ -51,8 +55,43 @@ export class RedControls {
     const panel = document.getElementById('panel')!;
     panel.innerHTML = '';
 
+    // ── Acceso: por cuál carril LLEGAN los autos al cruce ──
+    // Cada calle tiene dos sentidos, así que nombrar solo el punto cardinal es
+    // ambiguo: se etiqueta por el vecino de donde vienen ("desde A1"). Las
+    // entradas del borde se marcan porque no tienen semáforo que desvíe.
+    const accesoBox = this.grupo('Acceso (por dónde llegan)');
+    accesoBox.title =
+      'Carril por el que los autos llegan al cruce: allí ocurren la congestión y la colisión';
+    const selAcceso = document.createElement('select');
+    selAcceso.autocomplete = 'off';
+    const FLECHA: Record<Direction, string> = { N: '⬇', S: '⬆', O: '➡', E: '⬅' };
+    const CARDINAL: Record<Direction, string> = { N: 'norte', S: 'sur', O: 'oeste', E: 'este' };
+    const poblarAccesos = (): void => {
+      selAcceso.innerHTML = '';
+      const auto = document.createElement('option');
+      auto.value = '';
+      auto.textContent = '⚙ Automático';
+      selAcceso.appendChild(auto);
+      for (const e of this.scene.sim.graph.entrantes.get(this.nodoActivo) ?? []) {
+        const op = document.createElement('option');
+        op.value = e.dir;
+        op.textContent = e.from
+          ? `${FLECHA[e.dir]} desde ${e.from} (${CARDINAL[e.dir]})`
+          : `${FLECHA[e.dir]} desde afuera (${CARDINAL[e.dir]})`;
+        if (!e.from) op.title = 'Entrada del borde: no hay semáforo aguas arriba que pueda desviar';
+        selAcceso.appendChild(op);
+      }
+      selAcceso.value = '';
+      this.accesoActivo = undefined;
+    };
+    selAcceso.onchange = () => {
+      this.accesoActivo = (selAcceso.value || undefined) as Direction | undefined;
+    };
+    accesoBox.appendChild(selAcceso);
+
     // ── Nodo activo (compartido por congestión, colisión, peatón y LEDs) ──
-    const nodoBox = this.grupo('Nodo activo (congestión · colisión · peatón · LEDs)');
+    const nodoBox = this.grupo('Nodo activo');
+    nodoBox.title = 'Sobre este nodo actúan: congestión, colisión, peatón y los LEDs del ESP32';
     const sel = document.createElement('select');
     sel.autocomplete = 'off'; // evita que el navegador restaure el valor al recargar
     for (const id of this.scene.sim.graph.nodes.keys()) {
@@ -66,9 +105,12 @@ export class RedControls {
     sel.onchange = () => {
       this.nodoActivo = sel.value;
       this.scene.nodoActivo = sel.value; // mueve el resaltado al nodo elegido
+      poblarAccesos(); // los vecinos cambian con el nodo
     };
     nodoBox.appendChild(sel);
     panel.appendChild(nodoBox);
+    panel.appendChild(accesoBox);
+    poblarAccesos();
 
     // ── Tabs ──
     const tabsBar = document.createElement('div');
@@ -101,15 +143,16 @@ export class RedControls {
     tabBtns.get('Red')!.classList.add('activo');
 
     // ═══ Tab RED ═══
-    const modoBox = this.grupo('Coordinación de la red');
-    const modos: { v: boolean; label: string }[] = [
-      { v: true, label: '📡 Coordinada' },
-      { v: false, label: '⏱ Fija (sin mensajes)' },
+    const modoBox = this.grupo('Coordinación de la red', true);
+    const modos: { v: boolean; label: string; ayuda: string }[] = [
+      { v: true, label: '📡 Coordinada', ayuda: 'Los semáforos se avisan entre sí y desvían el tráfico' },
+      { v: false, label: '⏱ Fija', ayuda: 'Tiempos fijos, sin mensajes entre semáforos (línea base)' },
     ];
     const modoBtns: HTMLButtonElement[] = [];
-    for (const { v, label } of modos) {
+    for (const { v, label, ayuda } of modos) {
       const b = document.createElement('button');
       b.textContent = label;
+      b.title = ayuda;
       b.className = v === this.coordinado ? 'activo' : '';
       b.onclick = () => {
         this.coordinado = v;
@@ -123,17 +166,31 @@ export class RedControls {
     }
     tabRed.appendChild(modoBox);
 
-    const colBox = this.grupo('Eventos en el nodo activo');
-    this.boton(colBox, '⚠ Congestión (cola)', () => this.acciones.congestion(this.nodoActivo));
-    this.boton(colBox, '💥 Colisión (bloqueo)', () => this.acciones.colision(this.nodoActivo));
+    const colBox = this.grupo('Eventos en el nodo activo', true);
+    this.boton(
+      colBox,
+      '⚠ Congestión',
+      () => this.acciones.congestion(this.nodoActivo, this.accesoActivo),
+      'Satura el acceso elegido con una ráfaga de autos (cola crítica)',
+    );
+    this.boton(
+      colBox,
+      '💥 Colisión',
+      () => this.acciones.colision(this.nodoActivo, this.accesoActivo),
+      'Choque que bloquea el acceso elegido: la red lo detecta y desvía',
+    );
     tabRed.appendChild(colBox);
 
     // Accidentes activos: modo de despeje + listado para quitarlos a mano.
-    const accBox = this.grupo('Accidentes activos');
+    const accBox = this.grupo('Accidentes activos', true);
     const autoBtns: HTMLButtonElement[] = [];
-    for (const modo of [{ v: true, label: '⏱ Auto (10s)' }, { v: false, label: '✋ Manual' }]) {
+    for (const modo of [
+      { v: true, label: '⏱ Auto (10s)', ayuda: 'Los accidentes se despejan solos a los 10 s' },
+      { v: false, label: '✋ Manual', ayuda: 'El accidente queda hasta que lo quites con ✕' },
+    ]) {
       const b = document.createElement('button');
       b.textContent = modo.label;
+      b.title = modo.ayuda;
       b.className = modo.v === this.autoDespeje ? 'activo' : '';
       b.onclick = () => {
         this.autoDespeje = modo.v;
@@ -154,9 +211,14 @@ export class RedControls {
     tabRed.appendChild(accBox);
 
     // Seguir un auto: valida visualmente el re-ruteo ante una colisión.
-    const segBox = this.grupo('Seguir un auto (valida el desvío)');
-    this.boton(segBox, '🔍 Seguir un auto', () => this.acciones.seguir(this.nodoActivo));
-    this.boton(segBox, '✕ Dejar de seguir', () => this.acciones.dejarDeSeguir());
+    const segBox = this.grupo('Seguir un auto (valida el desvío)', true);
+    this.boton(
+      segBox,
+      '🔍 Seguir',
+      () => this.acciones.seguir(this.nodoActivo),
+      'Sigue un auto que pase por el nodo activo y dibuja su ruta',
+    );
+    this.boton(segBox, '✕ Dejar', () => this.acciones.dejarDeSeguir(), 'Deja de seguir al auto');
     this.focoStatus = document.createElement('div');
     this.focoStatus.className = 'minilog';
     this.focoStatus.textContent = '(ningún auto en seguimiento)';
@@ -177,9 +239,14 @@ export class RedControls {
     this.boton(pedBox, '🚶 Peatón', () => this.acciones.peaton(this.nodoActivo));
     tabSensores.appendChild(pedBox);
 
-    const bordeBox = this.grupo('Entran por el borde de la red');
-    this.boton(bordeBox, '🚗 Carro', () => this.acciones.carro());
-    this.boton(bordeBox, '🚑 Ambulancia', () => this.acciones.ambulancia());
+    const bordeBox = this.grupo('Entran por el borde de la red', true);
+    this.boton(bordeBox, '🚗 Carro', () => this.acciones.carro(), 'Inyecta un auto en una entrada de la cuadrícula');
+    this.boton(
+      bordeBox,
+      '🚑 Ambulancia',
+      () => this.acciones.ambulancia(),
+      'Entra a la red; los semáforos le abren paso en cascada',
+    );
     tabSensores.appendChild(bordeBox);
 
     if (conWokwi) {
@@ -252,7 +319,7 @@ export class RedControls {
     cfgBox.appendChild(restart);
     tabSim.appendChild(cfgBox);
 
-    // ── Lectura en vivo (siempre visible) ──
+    // ── Detalle en vivo (las métricas clave van a los chips de la barra) ──
     this.stats = document.createElement('div');
     this.stats.id = 'stats';
     panel.appendChild(this.stats);
@@ -264,6 +331,12 @@ export class RedControls {
     link.className = 'navlink';
     nav.appendChild(link);
     panel.appendChild(nav);
+
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent =
+      'Arrastra para orbitar · rueda para zoom · clic derecho para desplazar · tecla P oculta este panel';
+    panel.appendChild(hint);
   }
 
   setWokwi(ok: boolean): void {
@@ -333,9 +406,10 @@ export class RedControls {
     this.log.textContent = this.lineas.join('\n');
   }
 
-  private grupo(titulo: string): HTMLElement {
+  /** `duo` reparte los botones del grupo en dos columnas iguales. */
+  private grupo(titulo: string, duo = false): HTMLElement {
     const box = document.createElement('div');
-    box.className = 'grupo';
+    box.className = duo ? 'grupo duo' : 'grupo';
     if (titulo) {
       const h = document.createElement('label');
       h.textContent = titulo;
@@ -344,9 +418,10 @@ export class RedControls {
     return box;
   }
 
-  private boton(box: HTMLElement, texto: string, onClick: () => void): void {
+  private boton(box: HTMLElement, texto: string, onClick: () => void, titulo?: string): void {
     const b = document.createElement('button');
     b.textContent = texto;
+    if (titulo) b.title = titulo;
     b.onclick = onClick;
     box.appendChild(b);
   }
@@ -367,6 +442,22 @@ export class RedControls {
       }
     }
 
+    // Métricas clave → chips de la barra superior (visibles aunque el panel
+    // esté cerrado). El detalle se queda en el panel, más abajo.
+    setChips(
+      chip('⏱', `${s.simTime.toFixed(0)}s`, 'Tiempo de simulación transcurrido') +
+        chip('🕐', `${String(s.hora).padStart(2, '0')}:00`, 'Hora simulada del día (afecta el tráfico y el modo nocturno)') +
+        chip('🚗', String(s.enRed), 'Autos circulando ahora en la red') +
+        chip('✅', String(s.procesados), 'Autos que ya completaron su recorrido (throughput)') +
+        chip('⌛', `${s.esperaPromedio.toFixed(1)}s`, 'Espera promedio de los autos que completaron su recorrido') +
+        chip(
+          '💥',
+          String(s.incidentes.length),
+          'Accidentes activos que bloquean una vía',
+          s.incidentes.length > 0,
+        ),
+    );
+
     const luz = (estado: string) => `<b class="luz ${estado.toLowerCase()}">${estado}</b>`;
     const activo = s.luces[this.nodoActivo];
     const colas = Object.entries(s.colasPorNodo)
@@ -374,10 +465,8 @@ export class RedControls {
       .join(' ');
     const ultimosDespejes = s.despejes.slice(-2);
     this.stats.innerHTML = `
-      <div>⏱ ${s.simTime.toFixed(1)} s &nbsp; 🕐 ${String(s.hora).padStart(2, '0')}:00 &nbsp; 🚗 <b>${s.enRed}</b> &nbsp; ✅ ${s.procesados}</div>
-      <div>espera promedio: <b>${s.esperaPromedio.toFixed(1)} s</b> &nbsp; cola máx: <b>${s.colaMax}</b></div>
-      <div>💥 incidentes activos: <b>${s.incidentes.length}</b> &nbsp; roces detectados: <b>${s.colisiones}</b></div>
       <div>nodo ${this.nodoActivo}: N–S ${activo ? luz(activo.ns) : '—'} E–O ${activo ? luz(activo.ew) : '—'}</div>
+      <div>cola máx: <b>${s.colaMax}</b> &nbsp; roces detectados: <b>${s.colisiones}</b></div>
       <div class="colas">colas: ${colas}</div>
       ${
         s.congestiones.length > 0
