@@ -2,6 +2,7 @@ import type { Mode } from 'shared';
 import type { Simulation, Snapshot } from '../core/Simulation';
 import type { Scene } from '../render/Scene';
 import type { WokwiBridge } from '../wokwi/Bridge';
+import { chip, setChips } from './Shell';
 
 /**
  * Panel de control + sensores (HTML sobre el canvas).
@@ -156,6 +157,15 @@ export class Controls {
     const cola = s.colaPorVia;
     const colaNS = (cola.N ?? 0) + (cola.S ?? 0);
     const colaEW = (cola.E ?? 0) + (cola.O ?? 0);
+
+    // Métricas clave en la barra superior (igual que la vista de red).
+    setChips(
+      chip('⏱', `${s.simTime.toFixed(0)}s`, 'Tiempo de simulación transcurrido') +
+        chip('🕐', `${String(s.hora).padStart(2, '0')}:00`, 'Hora simulada del día') +
+        chip('🚗', String(colaNS + colaEW), 'Autos esperando en la intersección') +
+        chip('✅', String(s.procesados), 'Autos que ya cruzaron') +
+        chip('🚑', s.emergencia ?? '—', 'Vía con ambulancia (regla de emergencia)', !!s.emergencia),
+    );
     const alertas: string[] = [];
     if (s.emergencia) alertas.push(`🚑 emergencia vía ${s.emergencia}`);
     if (s.peaton) alertas.push('🚶 peatón esperando');
